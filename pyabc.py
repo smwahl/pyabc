@@ -13,7 +13,7 @@ M: 12/8
 L: 1/8
 K: Edor
 E2B B2A B2c d2A|F2A ABA D2E FED|E2B B2A B2c d3|cdc B2A B2E E3:|
-|:e2f gfe d2B Bcd|c2A ABc d2B B3|e2f gfe d2B Bcd|cdc B2A B2E E3:|| 
+|:e2f gfe d2B Bcd|c2A ABc d2B B3|e2f gfe d2B Bcd|cdc B2A B2E E3:||
 """,
 """
 X: 6
@@ -26,7 +26,7 @@ K: Emin
 BGB AFD G2 D| GAB dge dBA| BGB AFA G2 A| BAG FAG FED:|
 ~g3 eBe e2 f|~g3 efg afd| ~g3 eBe g2 a|bag fag fed:|
 eB/B/B e2f ~g3|eB/B/B efg afd| eB/B/B e2f g2a|bag fag fed:|
-edB dBA G2D|GAB dge dBA|edB dBA G2A|BAG FAG FED:| 
+edB dBA G2D|GAB dge dBA|edB dBA G2A|BAG FAG FED:|
 """
 ]
 
@@ -90,7 +90,7 @@ inline_fields = {k:v for k,v in info_keys.items() if v.inline}
 
 
 
-# map natural note letters to chromatic values 
+# map natural note letters to chromatic values
 pitch_values = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11, }
 accidental_values = {'': 0, '#': 1, 'b': -1}
 for n,v in list(pitch_values.items()):
@@ -101,8 +101,8 @@ for n,v in list(pitch_values.items()):
 chromatic_notes = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
 
 # map mode names relative to Ionian (in chromatic steps)
-mode_values = {'major': 0, 'minor': 3, 'ionian': 0, 'aeolian': 3, 
-               'mixolydian': -7, 'dorian': -2, 'phrygian': -4, 'lydian': -5, 
+mode_values = {'major': 0, 'minor': 3, 'ionian': 0, 'aeolian': 3,
+               'mixolydian': -7, 'dorian': -2, 'phrygian': -4, 'lydian': -5,
                'locrian': 1}
 
 # mode name normalization
@@ -123,12 +123,12 @@ class Key(object):
         else:
             self.root = Pitch(root)
             self.mode = mode
-            
+
     def parse_key(self, key):
         # highland pipe keys
         if key in ['HP', 'Hp']:
             return {'F': 1, 'C': 1, 'G': 0}
-        
+
         base, acc, mode, extra = re.match(r'([A-G])(\#|b)?\s*(\w+)?(.*)', key).groups()
         if acc is None:
             acc = ''
@@ -138,9 +138,9 @@ class Key(object):
             mode = mode_abbrev[mode[:3].lower()]
         except KeyError:
             raise ValueError("Unrecognized key signature %s" % key)
-        
+
         return Pitch(base+acc), mode
-            
+
     @property
     def key_signature(self):
         """
@@ -151,7 +151,7 @@ class Key(object):
         # to ionian, then doing the key lookup
         key = self.relative_ionian
         num_acc = key_sig[key.root.name]
-        
+
         sig = []
         # sharps or flats?
         if num_acc > 0:
@@ -160,7 +160,7 @@ class Key(object):
         else:
             for i in range(-num_acc):
                 sig.append(flat_order[i] + 'b')
-        
+
         return sig
 
     @property
@@ -168,7 +168,7 @@ class Key(object):
         """A dictionary of accidentals in the key signature.
         """
         return {p:a for p,a in self.key_signature}
-    
+
     @property
     def relative_ionian(self):
         """
@@ -177,7 +177,7 @@ class Key(object):
         key, mode = self.root, self.mode
         rel = mode_values[mode]
         return Key(root=(key.value + rel) % 12, mode='ionian')
-    
+
     def __repr__(self):
         return "<Key %s %s>" % (self.root.name, self.mode)
 
@@ -186,7 +186,7 @@ class Pitch(object):
     def __init__(self, value, octave=None):
         if isinstance(value, Note):
             self._note = value
-            
+
             if len(value.note) == 1:
                 acc = value.key.accidentals.get(value.note[0].upper(), '')
                 self._name = value.note.upper() + acc
@@ -194,7 +194,7 @@ class Pitch(object):
             else:
                 self._name = value.note.capitalize()
                 self._value = self.pitch_value(value.note)
-            
+
             assert octave is None
             self._octave = value.octave
         elif isinstance(value, str):
@@ -212,13 +212,13 @@ class Pitch(object):
 
     def __repr__(self):
         return "<Pitch %s>" % self.name
-    
+
     @property
     def name(self):
         if self._name is not None:
             return self._name
         return chromatic_notes[self.value]
-        
+
     @property
     def value(self):
         return self._value
@@ -246,7 +246,7 @@ class Pitch(object):
 
     def __eq__(self, a):
         return self.value == a.value
-    
+
 
 class TimeSignature(object):
     def __init__(self, meter, unit_len, tempo=None):
@@ -335,12 +335,12 @@ class Note(Token):
         self.accidental = accidental
         self.octave = octave
         self._length = (num, denom)
-        
+
     @property
     def pitch(self):
         """Chromatic note value taking into account key signature and transpositions.
         """
-        return Pitch(self) 
+        return Pitch(self)
 
     @property
     def length(self):
@@ -406,7 +406,7 @@ class Rest(Token):
         Token.__init__(self, **kwds)
         self.char = char
         self.length = (num, denom)
-            
+
 
 class InfoContext(object):
     """Keeps track of current information fields
@@ -436,7 +436,7 @@ class Tune(object):
             self.parse_json(json)
         else:
             raise TypeError("must provide abc or json")
-    
+
     @property
     def url(self):
         try:
@@ -447,7 +447,7 @@ class Tune(object):
     @property
     def notes(self):
         return [t for t in self.tokens if isinstance(t, Note)]
-        
+
     def parse_abc(self, abc):
         self.abc = abc
         header = []
@@ -467,7 +467,7 @@ class Tune(object):
                         in_tune = True
                 elif line[:2] == '+:':
                     header[-1] += ' ' + line[2:]
-                
+
         self.parse_header(header)
         self.parse_tune(tune)
 
@@ -492,10 +492,10 @@ class Tune(object):
         self.reference = h['reference number']
         self.title = h['tune title']
         self.key = h['key']
-            
+
     def parse_tune(self, tune):
         self.tokens = self.tokenize(tune, self.header)
-        
+
     def tokenize(self, tune, header):
         # get initial key signature from header
         key = Key(self.header['key'])
@@ -512,16 +512,16 @@ class Tune(object):
         tempo = self.header.get('tempo', None)
         time_sig = TimeSignature(meter, unit, tempo)
 
-        
+
         tokens = []
         for i,line in enumerate(tune):
             print(line)
             line = line.rstrip()
-            
+
             if len(line) > 2 and line[1] == ':' and (line[0] == '+' or line[0] in tune_body_fields):
                 tokens.append(BodyField(line=i, char=0, text=line))
                 continue
-            
+
             j = 0
             while j < len(line):
                 part = line[j:]
@@ -534,7 +534,7 @@ class Tune(object):
                         tokens.append(InlineField(line=i, char=j, text=m.group()))
                         j += m.end()
                         continue
-                
+
                 # Space
                 m = re.match('(\s+)', part)
                 if m is not None:
@@ -543,7 +543,7 @@ class Tune(object):
                     continue
 
                 # Note
-                # Examples:  c  E'  _F2  ^^G,/4  =a,',3/2 
+                # Examples:  c  E'  _F2  ^^G,/4  =a,',3/2
                 m = re.match(r"(?P<acc>\^|\^\^|=|_|__)?(?P<note>[a-gA-G])(?P<oct>[,']*)(?P<num>\d+)?(?P<slash>/+)?(?P<den>\d+)?", part)
                 if m is not None:
                     g = m.groupdict()
@@ -560,7 +560,7 @@ class Tune(object):
                     else:
                         denom = 1
 
-                    tokens.append(Note(key=key, time=time_sig, note=g['note'], accidental=g['acc'], 
+                    tokens.append(Note(key=key, time=time_sig, note=g['note'], accidental=g['acc'],
                         octave=octave, num=num, denom=denom, line=i, char=j, text=m.group()))
                     j += m.end()
                     continue
@@ -569,7 +569,7 @@ class Tune(object):
                 m = re.match('([\[\]\|\:]+)([0-9\-,])?', part)
                 if m is not None:
                     if m.group() in '[]':
-                        tokens.append(ChordBracket(line=i, char=j, text=m.group()))                        
+                        tokens.append(ChordBracket(line=i, char=j, text=m.group()))
                     else:
                         tokens.append(Beam(line=i, char=j, text=m.group()))
                     j += m.end()
@@ -590,7 +590,7 @@ class Tune(object):
                     tokens.append(Rest(g[0], num=g[1], denom=g[3], line=i, char=j, text=m.group()))
                     j += m.end()
                     continue
-                    
+
                 # Tuplets  (must parse before slur)
                 m = re.match('\(([2-9])', part)
                 if m is not None:
@@ -610,26 +610,26 @@ class Tune(object):
                     tokens.append(GracenoteBrace(line=i, char=j, text=m.group()))
                     j += m.end()
                     continue
-                
+
                 # Decorations (single character)
                 if part[0] in '.~HLMOPSTuv':
                     tokens.append(Decoration(line=i, char=j, text=part[0]))
                     j += 1
                     continue
-                
+
                 # Decorations (!symbol!)
                 m = re.match('\!([^\! ]+)\!', part)
                 if m is not None:
                     tokens.append(Decoration(line=i, char=j, text=m.group()))
                     j += m.end()
                     continue
-                
+
                 # Continuation
                 if j == len(line) - 1 and j == '\\':
                     tokens.append(Continuation(line=i, char=j, text='\\'))
                     j += 1
                     continue
-                
+
                 # Annotation
                 m = re.match('"[\^\_\<\>\@][^"]+"', part)
                 if m is not None:
@@ -643,21 +643,21 @@ class Tune(object):
                     tokens.append(ChordSymbol(line=i, char=j, text=m.group()))
                     j += m.end()
                     continue
-                
+
                 raise Exception("Unable to parse: %s\n%s" % (part, self.url))
-                
+
             if not isinstance(tokens[-1], Continuation):
                 tokens.append(Newline(line=i, char=j, text='\n'))
-                
+
         return tokens
-            
+
     def pitchogram(tune):
         hist = {}
         for note in tune.notes:
             v = note.pitch.abs_value
             hist[v] = hist.get(v, 0) + note.duration
         return hist
-        
+
 
 def get_thesession_tunes():
     import os, json
@@ -674,9 +674,11 @@ def get_thesession_tunes():
 
 
 if __name__ == '__main__':
-    ts_tunes = get_thesession_tunes()
+    #ts_tunes = get_thesession_tunes()
+    import json
+    ts_tunes = json.loads(open('tunes.json', 'rb').read().decode('utf8'))
     tune = Tune(json=ts_tunes[0])
-    
+
     print("Header: %s" % tune.header)
 
 
@@ -686,7 +688,7 @@ if __name__ == '__main__':
         plt.addLine(y=0)
         plt.addLine(y=12)
         plt.addLine(x=0)
-        
+
         ticks = []
         for i in (0, 1):
             for pitch in "CDEFGAB":
@@ -696,7 +698,7 @@ if __name__ == '__main__':
 
         tvals = []
         yvals = []
-        
+
         t = 0
         for token in tune.tokens:
             if isinstance(token, Beam):
@@ -706,13 +708,13 @@ if __name__ == '__main__':
                 yvals.append(token.pitch.abs_value)
                 t += token.duration
         plt.plot(tvals, yvals, pen=None, symbol='o')
-        
-        
+
+
         hist = tune.pitchogram()
         k = sorted(hist.keys())
         v = [hist[x] for x in k]
         plt = pg.plot()
         bar = pg.BarGraphItem(x=k, height=v, width=1)
         plt.addItem(bar)
-        
+
         plt.getAxis('bottom').setTicks([ticks])
