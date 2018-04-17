@@ -5,7 +5,6 @@ import json
 from tune_structure import matchJsonField, inJsonField, fieldList, parseStructure
 
 
-
 def transposeKey(key0,step):
     '''
     Transpose one pyabc.Key() by a number of half-steps.
@@ -28,8 +27,12 @@ class digitizedTune(object):
     and storing a digitized version that records the note durations and
     relative durations in a discritized format that allows for direct
     comparison of the tune shapes.
+
+    The code reads in an a json file for a tune, which has been standardized
+    using the parseStructure() method. The tune is saved as a list of parts,
+    which contains a list of measure arrays.
     '''
-    def __init__(self,json=None,tune=None,incnote=32):
+    def __init__(self,json=None,tune=None,incnote=16):
         if json is not None:
             self.json = json
             self.pyabcTune = pyabc.Tune(json=self.json)
@@ -38,16 +41,13 @@ class digitizedTune(object):
 
         self.tokens = self.pyabcTune.tokens
 
-        measures = self.findMeasures(self.tokens)
-        parts = self.findParts(measures)
-        self.measures = measures
-        self.num_parts =  len(parts)
-        la = []
-        for p in parts:
-            la.append( 2.*len(p)) # Note simplified version assumes repeating parts.
+        self.measures = self.findMeasures(self.tokens)
 
-        self.bars = np.array(la) # array of number of bars for part
+        self.bars = np.array(json['length'])
+        self.num_parts = len(json['length'])
         self.total_bars = np.sum(self.bars)
+
+        parts = self.findParts(self.measures,self.bars)
 
         self.key = pyabc.Key(self.pyabcTune.header['key'])
         self.meter = self.pyabcTune.header['meter']
@@ -66,6 +66,8 @@ class digitizedTune(object):
             dtune.append(dpart)
 
         self.tune = dtune
+        self.flat_tune = self.flattenTune(self.tune)
+        self.steps = self.findSteps(self.tune)
 
     def part(self,n):
         assert n < self.num_parts
@@ -81,7 +83,7 @@ class digitizedTune(object):
 
         lm = []
         for x in measure:
-            if isinstance(x,Note):
+            if isinstance(x,pyabc.Note):
                 #print x.pitch.value, x.duration, int(np.round(x.duration / incdur))
                 ndigits = int(np.round(x.duration / self.incdur))
                 lm += [x.pitch.value + 12.*x.pitch.octave for i in range(ndigits)]
@@ -118,26 +120,225 @@ class digitizedTune(object):
         meas = []
         for t in tokens:
             if self.isBeam(t):
-                meas.append(t)
+                #meas.append(t) # include the Beam?
                 result.append(meas)
                 meas = []
             else:
                 meas.append(t)
         return result
 
+    def findParts(self,measures,plens):
 
-    def findParts(self,measures):
+        parts = []
+        i0 = 0
+        i1 = 0
 
-        result = []
-        part = []
-        for m in measures:
-            if  ':|' in str(m[-1]):
-                part.append(m)
-                result.append(part)
-                part = []
+        for l in plens:
+            part = []
+            i0 = i1
+            i1 = i1 + l
+
+            part = measures[i0:i1]
+            parts.append(part)
+
+        return parts
+
+    def flattenTune(self,tune):
+        '''
+        Combine all parts into a single list of measure arrays, facilitates some operations.
+        '''
+        ftune = []
+        for part in tune:
+            for meas in part:
+                ftune.append(meas)
+        return ftune
+
+    def transposeByInterval(self,interval):
+        '''
+        Return the digitized tune transposed by a given interval.
+        '''
+        ttune = []
+        for part in self.tune:
+            tpart = []
+            for meas in part:
+                tpart.append(meas + interval)
+            ttune.append(tpart)
+        return ttune
+
+    def interval_root(self):
+        '''
+        Return the interval by which the tune would be shifted for the root to be "C".
+        '''
+        val = self.key.root.value
+        return  -1 * val
+
+    def interval_relative_ionion(self):
+        '''
+        Return the interval by which the tune would be shifted the relative ionian scale
+        to be "C ionian".
+        '''
+        val = dtune.key.relative_ionian.root.value
+        return -1 * val
+
+    def diffMeasure(self,meas0,meas1):
+        '''
+        Returns an Interval object representing the difference between two different measures
+        '''
+        assert len(meas0) == len(meas1), 'Measure arrays must be the same length for comparison.'
+        dist = meas1 - meas0
+        return Interval(dist)
+
+    def diffPart(self,part0,part1):
+        '''
+        Returns list of Interval object representing the difference between two different measures
+        '''
+        assert len(part0) == len(part1), 'Parts must have the same number of measures for comparison.'
+        dpart = []
+        for meas0,meas1 in zip(part0,part1):
+            dpart.append(self.diffMeasure(meas0,meas1))
+        return dpart
+
+    def diffTune(self):
+        assert False, 'Not implemented yet.'
+
+
+    def findSteps(self,tune):
+        '''
+        Returns an Interval object where each point is the how much the pitch changes from the
+        previous increment.
+        '''
+
+        flat_tune = self.flattenTune(tune)
+        sflat = []
+
+
+        for i in range(len(flat_tune)):
+            meas = flat_tune[i]
+            smeas0 = np.diff(meas)
+
+            # Find the step from the last inc in the previous
+            if i==0:
+                s0 = 0.
             else:
-                part.append(m)
-        return result
+                prev_meas = flat_tune[i-1]
+                s0 = meas[0] - prev_meas[-1]
+
+            #print s0, smeas0
+            smeas = np.hstack([s0,smeas0])
+            sflat.append(smeas)
+
+        stune = self.findParts(sflat,self.bars)
+        return stune
+
+
+class Interval(object):
+    '''
+    Defines an object that looks at the relative interval at every point between two
+    measures.
+
+    The 'extend' flag returns matches for intervals in arbitrary octave.
+    '''
+    def __init__(self,distance):
+
+        # stores the distance in semitones between the two
+        self.abs_distance = distance
+
+        # stores the value of absolute interval
+        self.values = np.abs(self.abs_distance)
+
+        # interval within same octave
+        self.values_octave = np.mod(self.values,12.)
+
+    def unison(self):
+        return self.values == 0
+
+    def octave(self,extend=True):
+        isUni = self.unison()
+        isOct = self.values_octave ==0
+
+        if extend:
+            return np.logical_and( np.logical_not(isUni), isOct)
+        else:
+            return self.values == 12.
+
+    def perfect_fifth(self,extend=True):
+        if extend:
+            return self.values_octave == 7.
+        else:
+            return self.values == 7.
+
+    def major_third(self,extend=True):
+        if extend:
+            return self.values_octave == 4.
+        else:
+            return self.values == 4.
+
+    def minor_third(self,extend=True):
+        if extend:
+            return self.values_octave == 3.
+        else:
+            return self.values == 3.
+
+    def minor_second(self,extend=True):
+        if extend:
+            return self.values_octave == 1.
+        else:
+            return self.values == 1.
+
+    def major_second(self,extend=True):
+        if extend:
+            return self.values_octave == 2.
+        else:
+            return self.values == 2.
+
+    def perfect_fourth(self,extend=True):
+        if extend:
+            return self.values_octave == 5.
+        else:
+            return self.values == 5.
+
+    def diminished_fifth(self,extend=True):
+        if extend:
+            return self.values_octave == 6.
+        else:
+            return self.values == 6.
+
+    def minor_sixth(self,extend=True):
+        if extend:
+            return self.values_octave == 8.
+        else:
+            return self.values == 8.
+
+    def major_sixth(self,extend=True):
+        if extend:
+            return self.values_octave == 9.
+        else:
+            return self.values == 9.
+
+    def minor_seventh(self,extend=True):
+        if extend:
+            return self.values_octave == 10.
+        else:
+            return self.values == 10.
+
+    def major_seventh(self,extend=True):
+        if extend:
+            return self.values_octave == 11.
+        else:
+            return self.values == 11.
+
+    #def findParts(self,measures):
+
+        #result = []
+        #part = []
+        #for m in measures:
+            #if  ':|' in str(m[-1]):
+                #part.append(m)
+                #result.append(part)
+                #part = []
+            #else:
+                #part.append(m)
+        #return result
 
 
 if __name__ == "__main__":
@@ -149,5 +350,24 @@ if __name__ == "__main__":
 
     dtune = digitizedTune(json=t)
 
-    print dtune.tune
+    #print dtune.tune
+
+    # testing interval
+
+    meas0 = np.array([ 0., 0., 0., 0.,
+              2., 2., 2., 2.,
+              4.,4.,3.,3.,
+              8.,8.,8.,8.])
+
+    meas1 = np.array([ 0., 0., 12., 12.,
+              9.,9.,9.-12.,9.+12.,
+              0.,0.,0.,0.,
+              8.,8.,8.-24.,8.-24.])
+
+    int0 = dtune.diffMeasure(meas0,meas1)
+
+    print int0.values
+
+
+
 
