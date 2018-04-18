@@ -27,6 +27,28 @@ from click import progressbar
 # If you request an individual item, e.g. /tunes/27?format=xml, you will get back the details for that item and any comments that have been posted to it.
 
 class thesessionDB(object):
+    '''
+    Defines an sqlite database, built from the json-based data dumps provided
+    at 'https://github.com/adactio/TheSession-data'.
+
+    Tables are included for:
+
+    Users
+    Tunes
+    Settings
+    Aliases
+    Recordings
+    Recorded Tunes
+    Events
+    Sessions
+
+    Fields are added to the database from additional scraped directly from
+    thesession.org, using the sites api, and from information consolidated by
+    this codebase.
+
+    Search functions are defined to translate more pthonic searches to SQL
+    language.
+    '''
 
     def __init__(self, delete=False,download=False):
 
@@ -64,7 +86,7 @@ class thesessionDB(object):
     def get_thesession_jsons(self,
             src='https://raw.githubusercontent.com/adactio/TheSession-data/master/json'):
         import urllib
-        for f in ['tunes','recodings','aliases','events','sessions']:
+        for f in ['tunes','recordings','aliases','events','sessions']:
             url = src+'/'+f+'.json'
             print("Downloading "+f+" database from %s..." % url)
             try:
